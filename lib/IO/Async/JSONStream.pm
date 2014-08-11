@@ -8,7 +8,7 @@ package IO::Async::JSONStream;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use base qw( IO::Async::Stream );
 IO::Async::Stream->VERSION( '0.57' ); # ->read future
@@ -61,10 +61,10 @@ references in parameters:
 Invoked when a line of JSON-encoded data is received. It is passed the decoded
 data as a regular Perl data structure.
 
-=head2 on_json_error $error, $line
+=head2 on_json_error $error
 
 Invoked when a line is received but JSON decoding fails. It is passed the
-failure exception from the JSON decoder and the line on which decoding failed.
+failure exception from the JSON decoder.
 
 =cut
 
@@ -82,8 +82,8 @@ CODE references for event handlers.
 
 =item eol => STRING
 
-Optional. Sets the string used for the line ending on the stream. Defaults to
-C<\n> if not given.
+Optional. Sets the string used for the line ending on the stream when writing
+JSON. Defaults to C<\n> if not given.
 
 =back
 
@@ -95,6 +95,8 @@ sub _init
    $self->SUPER::_init( @_ );
 
    $self->{eol} = "\n";
+   $self->{json_read_f} = [];
+   $self->{json} = JSON->new;
 }
 
 sub configure
@@ -120,18 +122,35 @@ sub on_read
    my ( $buffref, $eof ) = @_;
    return if $eof;
 
-   my $eol = $self->{eol};
+   my $json = $self->{json};
 
-   while( $$buffref =~ s/^(.*)\Q$eol// ) {
-      my $line = $1;
+   $json->incr_parse( $$buffref );
+   $$buffref = '';
+
+   PARSE_ONE: {
       my $data;
-      if( eval { $data = decode_json( $line ); 1 } ) {
-         $self->invoke_event( on_json => $data );
+
+      my $fail = not eval {
+         $data = $json->incr_parse;
+         1
+      };
+      chomp( my $e = $@ );
+
+      my $f;
+      1 while $f = shift @{ $self->{json_read_f} } and $f->is_cancelled;
+
+      if( $data ) {
+         $f ? $f->done( $data )
+            : $self->invoke_event( on_json => $data );
+         redo PARSE_ONE;
       }
-      else {
-         chomp( my $e = $@ );
-         $self->invoke_event( on_json_error => $e, $line );
+      elsif( $fail ) {
+         $f ? $f->fail( $e, json => )
+            : $self->invoke_event( on_json_error => $e );
+         $json->incr_skip;
+         redo PARSE_ONE;
       }
+      # else last
    }
 
    return 0;
@@ -171,34 +190,17 @@ operation name C<json> and the line on which decoding failed as its argument.
 sub read_json
 {
    my $self = shift;
-   $self->read_until( $self->{eol} )->then( sub {
-      my ( $line ) = @_;
-      my $data;
-      if( eval { $data = decode_json( $line ); 1 } ) {
-         return Future->new->done( $data );
-      }
-      else {
-         chomp( my $e = $@ );
-         return Future->new->fail( $e, json => $line );
-      }
-   });
+
+   push @{ $self->{json_read_f} }, my $f = $self->loop->new_future;
+
+   return $f;
 }
-
-=head1 TODO
-
-=over 2
-
-=item *
-
-Consider a true streaming mode, using C<JSON>'s incremental parsing ability.
-
-=back
-
-=cut
 
 =head1 AUTHOR
 
 Paul Evans <leonerd@leonerd.org.uk>
+
+Incremental parsing support added by Frew Schmidt
 
 =cut
 

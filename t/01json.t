@@ -95,6 +95,46 @@ $jsonstream->configure(
    is( ( $f->failure )[1], "json", 'Non-JSON line yields "json" failure' );
 }
 
+# incremental: two in one line
+{
+   my @data;
+   $jsonstream->configure(
+      on_json => sub { push @data, $_[1] },
+   );
+
+   $S2->syswrite( encode_json( [ "data", "for", "event" ] ) .
+                  encode_json( [ "data", "for", "event2" ] ));
+
+   wait_for { @data };
+
+   is_deeply( \@data, [
+              [ "data", "for", "event" ],
+              [ "data", "for", "event2" ],
+           ],
+              'Concatenated JSON documents still works' );
+}
+
+# incremental: one across two lines
+{
+   my $data;
+   $jsonstream->configure(
+      on_json => sub { $data = $_[1] },
+   );
+
+   $S2->syswrite( qq(["this is split",\n) );
+
+   $loop->loop_once( 0.1 );
+
+   is( $data, undef, 'No data yet after one line' );
+
+   $S2->syswrite( qq( "across two"]\n) );
+
+   wait_for { $data };
+
+   is_deeply( $data, [ "this is split", "across two" ],
+      'JSON split across two lines still works' );
+}
+
 # read errors event
 {
    my ( $err, $errline );
@@ -106,7 +146,7 @@ $jsonstream->configure(
 
    wait_for { $err };
 
-   is( $errline, "this is not json", 'Non-JSON line invokes on_json_error with line' );
+   pass( "Non-JSON line invokes on_json_error" );
 }
 
 done_testing;

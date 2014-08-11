@@ -4,7 +4,7 @@
       "Paul Evans <leonerd@leonerd.org.uk>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4203",
+   "generated_by" : "Module::Build version 0.4206",
    "license" : [
       "perl_5"
    ],
@@ -18,7 +18,6 @@
          "requires" : {
             "IO::Async::OS" : "0",
             "IO::Async::Test" : "0.14",
-            "Test::Fatal" : "0",
             "Test::More" : "0.88"
          }
       },
@@ -32,7 +31,7 @@
    "provides" : {
       "IO::Async::JSONStream" : {
          "file" : "lib/IO/Async/JSONStream.pm",
-         "version" : "0.01"
+         "version" : "0.02"
       }
    },
    "release_status" : "stable",
@@ -41,5 +40,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.01"
+   "version" : "0.02"
 }

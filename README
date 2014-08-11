@@ -36,10 +36,9 @@ EVENTS
     Invoked when a line of JSON-encoded data is received. It is passed the
     decoded data as a regular Perl data structure.
 
-  on_json_error $error, $line
+  on_json_error $error
     Invoked when a line is received but JSON decoding fails. It is passed
-    the failure exception from the JSON decoder and the line on which
-    decoding failed.
+    the failure exception from the JSON decoder.
 
 PARAMETERS
     The following named parameters may be passed to `new' or `configure':
@@ -49,8 +48,8 @@ PARAMETERS
             CODE references for event handlers.
 
     eol => STRING
-            Optional. Sets the string used for the line ending on the
-            stream. Defaults to `\n' if not given.
+            Optional. Sets the string used for the line ending on the stream
+            when writing JSON. Defaults to `\n' if not given.
 
 METHODS
   $jsonstream->write_json( $data, %args )
@@ -69,10 +68,8 @@ METHODS
     the operation name `json' and the line on which decoding failed as its
     argument.
 
-TODO
-    * Consider a true streaming mode, using `JSON''s incremental parsing
-      ability.
-
 AUTHOR
     Paul Evans <leonerd@leonerd.org.uk>
+
+    Incremental parsing support added by Frew Schmidt
 
